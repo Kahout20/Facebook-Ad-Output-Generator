@@ -77,8 +77,17 @@ Every successful generation (including regenerates) is saved to `localStorage` �
 
 ```bash
 npm install
-cp .env.example .env.local
-# edit .env.local and set GEMINI_API_KEY
+```
+
+Create a file named `.env.local` in the project root with:
+
+```
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+Then start the dev server:
+
+```bash
 npm run dev
 ```
 
@@ -90,7 +99,7 @@ Open http://localhost:3000.
 |---|---|---|
 | `GEMINI_API_KEY` | Yes | Server-side only. Never prefix with `NEXT_PUBLIC_`. Get one at https://aistudio.google.com/apikey. Google's newer "Auth keys" start with `AQ.` (older `AIza...` keys are being phased out) — either format works as long as the `@google/genai` SDK is used, which this project does. |
 
-`.env.local` is gitignored.
+`.env.local` is gitignored — it never gets committed to GitHub, so anyone cloning the repo needs to create their own copy with their own key.
 
 ## Deploying to Vercel
 
