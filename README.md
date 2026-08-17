@@ -113,7 +113,6 @@ Open http://localhost:3000.
 - **Generation history is client-side only.** It's stored in `localStorage`, per browser, with no server-side or database persistence. A production version would associate history with an authenticated account and store it server-side.
 - **No authentication, database, or payments** — intentionally out of scope for this MVP.
 - **No usage limit** — generation is currently unlimited; there is no rate limiting or abuse protection on the API route.
-- **No automated tests** — out of scope for an MVP assessment exercise; see "Potential Improvements" in `TECHNICAL_SPECIFICATION.md`.
 
 ## Other docs
 
