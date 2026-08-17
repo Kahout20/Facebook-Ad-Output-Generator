@@ -2,183 +2,181 @@
 
 ## 1. Overview
 
-A Next.js 14 (App Router) MVP that lets a user upload a product image and marketing preferences, and returns AI-generated, structured Facebook ad copy. Single-user, no accounts, no database — the current session's state lives in React state, and generation history persists locally via `localStorage`.
+A Next.js 14 (App Router) MVP that lets a user upload a product image and marketing preferences, and returns AI-generated, structured Facebook ad copy. Single-user, no accounts, no database — the current session's state lives in React state, and a "Recent Generations" history persists locally in the browser via `localStorage`. The AI is Google's Gemini (`gemini-3.6-flash`, multimodal — it can read the product photo directly), accessed only from the server, never from the browser.
 
-## 2. Frontend architecture
+This document is organized in four parts:
+- **§2** — a quick-reference table of what every file is responsible for, folder by folder
+- **§3** — a detailed walkthrough of every file, explaining what each function inside it does and why it's written that way
+- **§4** — the end-to-end trace of what happens, file by file, when a user clicks "Generate"
+- **§5** — what could be improved, including specific issues found while writing this document
 
-`app/page.tsx` is the single client component orchestrating the flow. It owns:
-- the uploaded `File` and its object-URL preview
-- the `MarketingSettings` form state
-- generation state machine (`idle` → `loading` → `success` | `error`)
-- which past generation (if any) is currently being viewed in the history modal
+## 2. File responsibility overview
 
-It composes five presentational components (`ImageUpload`, `MarketingSettingsForm`, `AdResults`, `RecentGenerations`, `HistoryEntryModal`), each responsible for one piece of UI and taking plain props/callbacks. `SiteNav` (site-wide top bar) is rendered from `app/layout.tsx`, not `page.tsx`, since it's chrome shared across the whole app rather than part of the generator flow. No presentational component talks to the network or to `localStorage` directly except `useGenerationHistory` (a small hook, see §9) and `page.tsx` itself (the `fetch` call).
+### `app/` — pages and the server route
 
-Why a single page component instead of a multi-step wizard/router: the flow is linear and short (upload → settings → generate → result), and the brief explicitly asked to avoid over-engineering. Conditional rendering based on state is simpler and easier to review than routed steps for this size of app.
+| File | Responsible for |
+|---|---|
+| `page.tsx` | The entire app's single screen. Holds all UI state (uploaded image, settings, generation result, history) and composes every component together. |
+| `layout.tsx` | The wrapper around every page — loads fonts, sets page metadata, and renders the top nav (`SiteNav`) above whatever page is showing. |
+| `globals.css` | Site-wide CSS — Tailwind's entrypoint plus a few global rules (dark color scheme, a shared focus-ring utility, reduced-motion support). |
+| `api/generate/route.ts` | The **only** server code allowed to talk to Gemini. Receives an image + settings from the browser, validates everything, calls the AI, and returns clean JSON or a safe error message. This is what keeps the Gemini API key off the client. |
 
-## 3. Backend / API route
+### `components/` — visual building blocks
 
-`app/api/generate/route.ts` is the only server-side entry point. It:
-1. Parses and validates the request body (image present, accepted mime type, size under 8MB, settings shape valid, custom audience non-empty if selected)
-2. Calls `generateAdCopy()` from `lib/gemini.ts`
-3. Maps any thrown error to a specific HTTP status and a generic, user-safe message
-4. Logs the real error server-side via `console.error` for debugging, but never returns stack traces, provider error text, or configuration details to the client
+| File | Responsible for |
+|---|---|
+| `SiteNav.tsx` | The top bar — "AdStudio AI" logo and "Powered by Gemini" badge. No state, no logic. |
+| `ImageUpload.tsx` | The drag-and-drop / browse box, client-side file validation, and the image preview once one's uploaded. |
+| `MarketingSettingsForm.tsx` | The settings panel: Target Audience, Tone, Language, Call to Action, Product Name, Key Selling Point. |
+| `AdResults.tsx` | Displays a generated ad two ways: a realistic Facebook-post mockup, and individually copyable text fields. Also hosts the Regenerate / Generate another ad buttons. |
+| `RecentGenerations.tsx` | The "Recent Generations" list — empty state, entry list, and "Clear history" with a confirmation step. |
+| `HistoryEntryModal.tsx` | The read-only pop-up shown when a user clicks "View" on a past generation. |
 
-`runtime = "nodejs"` is set explicitly since the Gemini SDK needs the Node runtime, not the Edge runtime.
+### `lib/` — logic with no visual output
 
-## 4. Gemini integration
+| File | Responsible for |
+|---|---|
+| `types.ts` | Shared TypeScript types and constants used across the whole app (what a "setting" looks like, what a "result" looks like, the CTA option list, size limits, etc.). Every other file imports from here — it has no logic of its own. |
+| `prompt.ts` | Builds the text instructions sent to Gemini, based on the user's marketing settings. This is where the "sound like a real copywriter" rules live. |
+| `gemini.ts` | Calls the Gemini API with that prompt and the image, validates the JSON it gets back, and enforces that the CTA and product name match exactly what the user chose. |
+| `history.ts` | Plain (non-React) functions that read, write, and clear the "Recent Generations" list in the browser's `localStorage`. |
+| `useGenerationHistory.ts` | A React hook wrapping `history.ts` so components can use it safely (handles a Next.js rendering timing issue — see §3). |
+| `utils.ts` | Small reusable helpers: converting an uploaded file to the format the API needs, and copying text to the clipboard. |
 
-`lib/gemini.ts` wraps `@google/genai` (Google's current unified SDK — the project originally used the older `@google/generative-ai` package, which reached end-of-life in November 2025 and is incompatible with Google's newer `AQ.`-prefixed "Auth key" API key format; it was migrated early on):
-- `getClient()` reads `GEMINI_API_KEY` from `process.env` (server-only) and throws a typed `GeminiConfigError` if missing
-- `generateAdCopy()` sends the prompt text plus the image as `inlineData` (base64 + mime type) to `gemini-3.6-flash`, a current multimodal model capable of reading the product photo
-- The raw text response is parsed by `parseAdCopyResponse()`, which:
-  - Strips markdown code fences if the model adds them despite instructions
-  - Extracts the first `{...}` block as a fallback
-  - Validates `primaryText`, `headline`, `description`, and `cta` are present and non-empty (throws `GeminiParseError` otherwise)
-  - Falls back `productName` to `"Uploaded Product"` if Gemini omits it, rather than failing the whole generation over a non-essential field
-- After parsing, `generateAdCopy()` **overwrites** the returned `cta` with `settings.cta` unconditionally, and overwrites `productName` with the user-supplied value if one was given. This is a deliberate design choice: the prompt instructs Gemini to echo back the exact selected CTA and prioritize a user-supplied product name, but the code never *trusts* that instruction was followed — it enforces both outcomes structurally after the fact, so it's not possible for the AI to override either value even by mistake.
+## 3. File-by-file details
 
-Three typed error classes (`GeminiConfigError`, `GeminiRequestError`, `GeminiParseError`) let the API route return the right HTTP status and message without string-matching error text.
+### `app/`
 
-## 5. Prompt design
+#### `app/layout.tsx`
 
-`lib/prompt.ts` builds one instruction prompt per request from the current `MarketingSettings`, aimed at producing copy that reads like it came from an experienced human performance copywriter rather than generic AI-generated marketing text. Key elements, in the order they appear in the prompt:
+Not a function-heavy file — it's the root layout every page renders inside of. It loads two Google Fonts (`Sora` for display/headings, `Inter` for body text) via Next.js's built-in font loader, sets the page `<title>` and meta description, and renders `<SiteNav />` followed by whatever page content is passed in as `children`. There's exactly one function here, `RootLayout(...)`, which is really just the JSX shell — no business logic.
 
-- **Product understanding**: asks Gemini to analyze the image for what the product is, what problem it solves, its practical benefits, likely audience, and distinctive features — using only what's visible or explicitly supplied, never invented.
-- **Context block**: product name (user-supplied takes priority; otherwise inferred, never a fabricated brand/model), key selling point (built into the copy, not just mentioned once), target audience (hard constraint if custom), tone, output language (hard constraint), and the selected CTA (hard constraint, stated explicitly: "use exactly this CTA... do not substitute").
-- **Priority framework**: customer problem → product benefit → differentiation via the selling point → emotional appeal matched to tone/audience → clear value proposition → natural lead into the CTA.
-- **"Do not invent" list**: specs, materials, certifications, discounts, prices, guarantees, statistics, medical claims, performance percentages, "number one" claims, unsupported comparisons.
-- **Anti-cliché rules**: explicitly bans generic filler phrases ("Elevate your lifestyle," "Experience the luxury of...," "Designed for modern lifestyles," etc.) and overused AI-copywriter words ("effortless," "seamlessly," "approachable," "luxury"), with a bad/better example pair to anchor the tone. This also required rewording the app's own internal tone guidance — the `friendly` tone description previously used the word "approachable" to describe the desired tone to Gemini, which risked the model echoing that exact banned word back into the generated copy; it was reworded to avoid modeling the cliché it's trying to prevent.
-- **Length guidance**: Primary Text is guided toward roughly 40–80 words as a soft preference, not a requirement — the prompt explicitly says not to pad the copy to hit a word count, and that every sentence must earn its place (a real benefit, insight, or reason to act) rather than adding a generic closing sentence just for length.
-- **Internal quality checklist**: before returning its answer, the prompt asks Gemini to check that the product, problem, and benefit are clear; the audience/tone/language/CTA are respected; the selling point is actually used; no sentence is padding or a restatement; and no banned clichés or unsupported claims remain.
-- **Output contract**: a single JSON object with `productName`, `primaryText`, `headline`, `description`, `cta` — no markdown fences, no commentary.
+#### `app/page.tsx`
 
-Keeping this in one pure function (settings in, string out) makes the prompt easy to review, version, and adjust without touching the API route or the Gemini client code.
+The main screen. All of its "functions" are React state and event handlers living inside the `HomePage` component:
 
-## 6. Image handling
-
-- Client-side: `lib/utils.ts`'s `fileToBase64()` reads the `File` via `FileReader` and strips the `data:...;base64,` prefix before sending JSON to the API route (avoids multipart/form-data complexity for an MVP).
-- Server-side: the base64 string and mime type are passed straight through to Gemini as `inlineData` — no server-side image processing/resizing in this MVP (see §12).
-- Size is checked twice: client-side against the real `File.size`, and server-side by estimating decoded byte length from the base64 string length (`(len * 3) / 4`), so a request can't bypass the client check.
-
-## 7. Validation
-
-- **Client**: file type/size checked in `ImageUpload` before accepting a file; "Generate" is disabled unless an image is present and, if "Custom" audience is selected, the description isn't empty.
-- **Server**: the API route re-validates everything independently (never trusts the client) — file presence, mime type against `ACCEPTED_IMAGE_TYPES`, size, settings shape via `isValidSettings()`, and the custom-audience-non-empty rule.
-
-## 8. Error handling
-
-Every failure mode maps to a specific, human-readable message shown inline near the action that failed, never a raw exception or stack trace:
-- No image / unsupported type / file too large → caught client-side in `ImageUpload`, or server-side as a 400 with a plain message
-- Gemini not configured → 500, generic "not configured yet" message (details logged server-side only)
-- Gemini request failure (network/provider) → 502, "AI service is unavailable right now"
-- Invalid/unparseable Gemini response → 502, "AI response could not be understood — try Regenerate"
-- Network failure from the browser's `fetch` → caught in `page.tsx`, generic network error message
-
-## 9. Recent Generations (history)
-
-`lib/history.ts` is a plain utility module (no React) that reads/writes a JSON array under a single `localStorage` key (`fbAdGenerator.generationHistory`):
-- `getGenerationHistory()` — safe to call on the server (returns `[]`) or with malformed/missing data (returns `[]` rather than throwing)
-- `saveGeneration(result)` — builds a `GenerationHistoryEntry` (id, productName, headline, primaryText, description, cta, timestamp), prepends it, and trims to the 10 most recent (`HISTORY_LIMIT`)
-- `clearGenerationHistory()` — removes the key entirely
-- `formatRelativeTime()` — "Just now" / "N min ago" / "N hour(s) ago" / "N day(s) ago"
-
-`lib/useGenerationHistory.ts` is a thin React hook wrapping that module: it starts with an empty array on both the server and the first client render, then loads the real `localStorage` contents inside a `useEffect` — this two-phase approach (rather than reading `localStorage` synchronously during render) is what avoids Next.js hydration mismatches, since server-rendered HTML can never know what's in the browser's storage.
-
-**Deliberately not stored**: the original product image. Only the generated text fields are kept, which keeps entries small and avoids storing potentially large base64 image data in `localStorage` (which has a small per-origin size limit, typically ~5–10MB depending on browser). `HistoryEntryModal` shows a past entry's text fields only, with a note explaining the image isn't available.
-
-Both a fresh "Generate" and a "Regenerate" call `saveGeneration()` on success, so regenerated variations appear as separate history entries rather than overwriting the original — this is a deliberate choice so the user can compare variations, not an oversight.
-
-**For the assessment MVP, generation history is stored locally in the browser to provide useful persistence without introducing unnecessary infrastructure. A production implementation would associate history with authenticated users and store it server-side.** This is intentionally not secure or durable — clearing browser storage, using a different browser, or switching devices all produce an empty history. A production version would move this to a database keyed to an authenticated user.
-
-## 10. "Generate another ad" vs. "Regenerate"
-
-These two actions are deliberately different and map to different state resets in `app/page.tsx`:
-
-- **Regenerate** (`handleRegenerate`) calls the same generation logic as the initial "Generate" click, reusing the current `file` and current `settings` completely unchanged — it produces a new AI variation of the same product with the same inputs.
-- **Generate another ad** (`handleGenerateAnother`) is meant to start a fresh product. It clears the uploaded image (via the same `handleClearImage` used by the image upload's "Remove" button) and also resets the product-specific settings fields — `productName`, `customAudience` text, and `keySellingPoint` — via a single `setSettings` update. It deliberately does **not** touch `tone`, `language`, `cta`, or `targetAudienceMode` (auto/custom), so the user's general marketing preferences carry over to the next product without needing to re-select them. This distinction (product-specific vs. general-preference settings) is the basis for what gets cleared and what doesn't.
-
-## 11. Security considerations
-
-- `GEMINI_API_KEY` is read only in server-side code (`lib/gemini.ts`, executed inside the `app/api/generate` route handler) and is never referenced with a `NEXT_PUBLIC_` prefix, so Next.js never inlines it into client bundles.
-- `.env.local` is gitignored.
-- API error responses are deliberately generic — no stack traces, provider error bodies, or internal config state ever reach the client; real errors go to `console.error` server-side.
-- Input is validated server-side independent of client checks (file type/size, settings shape) since the client can't be trusted.
-
-## 12. Deployment
-
-Standard Vercel deployment: push to GitHub, import into Vercel, set `GEMINI_API_KEY` in Project Settings → Environment Variables, deploy. No build-step configuration beyond the defaults `next build` provides — no database, no separate backend service.
-
-## 13. Function reference
-
-Every non-trivial function in the codebase, grouped by file, in the order it appears. UI components (`ImageUpload`, `MarketingSettingsForm`, `AdResults`, `RecentGenerations`, `HistoryEntryModal`, `SiteNav`) are covered at the component level in §2 rather than prop-by-prop here, since their logic is mostly presentational; this section focuses on the functions that hold actual business logic.
-
-### `lib/prompt.ts`
-
-- **`buildAdCopyPrompt(settings)`** — the only exported function in the file. Takes the user's `MarketingSettings` and returns the full instruction string sent to Gemini. It's a pure function (settings in, string out) so the prompt can be reviewed, tested, or tuned without touching the network call or the API route. Internally it builds four small conditional instruction fragments (audience, product name, selling point) using ternaries — each one gives Gemini a fallback instruction when the user left that field blank, so the model never has to guess what "not provided" means. The two `Record<...>` lookup tables (`TONE_GUIDANCE`, `LANGUAGE_NAME`) exist so the tone/language options in the UI can map to fuller instruction text without a `switch` statement.
-
-### `lib/gemini.ts`
-
-- **`getClient()`** — reads `GEMINI_API_KEY` from `process.env` and constructs a `GoogleGenAI` client. Throws a typed `GeminiConfigError` if the key is missing, rather than letting the SDK fail with a less specific error later — this makes "forgot to set the env var" a distinct, recognizable failure mode.
-- **`extractJsonBlock(raw)`** — defensive parsing helper. Gemini is instructed to return raw JSON with no markdown, but models don't always comply, so this strips ` ```json ` fences if present, and falls back to slicing out the first `{...}` block from the response text if no fence is found. Exists because trusting the model to always format correctly would make generation fail unnecessarily often.
-- **`parseAdCopyResponse(raw)`** — takes the raw text response and turns it into a validated `AdCopyResult`. Parses JSON (throwing `GeminiParseError` on failure), checks that `primaryText`, `headline`, `description`, and `cta` are all non-empty strings, and defaults `productName` to `"Uploaded Product"` if Gemini omits it rather than failing the whole generation over one non-essential field. This is where "trust but verify" happens — the function never assumes the model's output matches the requested shape.
-- **`generateAdCopy(imageBase64, mimeType, settings)`** — the main exported entry point, called by the API route. Builds the client and prompt, sends the image + prompt to Gemini, and passes the response through `parseAdCopyResponse`. After parsing, it does two things deliberately *not* delegated to the AI: it overwrites `cta` with `settings.cta` unconditionally, and overwrites `productName` with the user's value if one was supplied. The prompt already asks Gemini to respect both, but this function doesn't rely on that — it enforces the outcome in code, so neither value can be wrong even if the model ignores an instruction.
-
-### `lib/history.ts`
-
-- **`isBrowser()`** — returns whether `window`/`localStorage` exist. Every other function in the file checks this first, since Next.js renders this code on the server too, where `window` doesn't exist.
-- **`isValidEntry(value)`** — a type guard that checks an unknown value has all the fields a `GenerationHistoryEntry` needs, with the right types. Used to filter out corrupted or old-shape data read back from `localStorage`, since anything written to browser storage should be treated as untrusted input (a user could hand-edit it, or an older version of the app could have written a different shape).
-- **`getGenerationHistory()`** — reads and parses the stored array, returning `[]` on the server, on missing data, or on any parse error, rather than throwing. Filters the parsed array through `isValidEntry` so malformed entries silently drop instead of crashing the page.
-- **`saveGeneration(result)`** — builds a new `GenerationHistoryEntry` (generating an id from a timestamp + random suffix, since there's no server to issue one), prepends it to the existing list, and trims to `HISTORY_LIMIT` (10) before writing back. The write is wrapped in try/catch since `localStorage.setItem` can throw if storage is full — in that case the function just returns the new in-memory list without persisting, rather than crashing the generation flow over a storage quota issue.
-- **`clearGenerationHistory()`** — removes the storage key entirely. Also wrapped in try/catch for the same reason as above.
-- **`formatRelativeTime(timestamp)`** — pure function turning a millisecond timestamp into "Just now" / "N min ago" / "N hour(s) ago" / "N day(s) ago". Kept separate from the storage functions since it's a display concern, not a persistence concern, and it's reused by both `RecentGenerations` and `HistoryEntryModal`.
-
-### `lib/useGenerationHistory.ts`
-
-- **`useGenerationHistory()`** — the only function in the file, a React hook wrapping `lib/history.ts` for use in components. It starts with an empty array on the very first render (both server and client) and only loads the real `localStorage` contents inside a `useEffect`, which runs after hydration. This two-phase approach exists specifically to avoid a Next.js hydration mismatch: if the hook read `localStorage` synchronously during render, the server-rendered HTML (which has no access to the browser's storage) would differ from the client's first render, and React would throw a hydration error. `addEntry` and `clearAll` are thin wrappers that call the underlying storage functions and then sync React state so the UI re-renders immediately.
-
-### `lib/utils.ts`
-
-- **`fileToBase64(file)`** — wraps the browser's `FileReader` in a Promise (it's a callback-based API natively) and strips the `data:...;base64,` prefix, since the API route expects raw base64. Used before every `fetch("/api/generate")` call.
-- **`urlToFile(url, filename)`** — fetches a same-origin URL and converts the response into a `File` object, using the fetched blob's real content type rather than a guessed one. This was written to support the original demo-product quick-select feature (turning a demo product's image URL into a `File` the same upload code could use). That feature has since been removed from the UI (see §14 below) — this function is no longer called anywhere and is a candidate for deletion.
-- **`copyToClipboard(text)`** — thin wrapper around `navigator.clipboard.writeText` that returns `true`/`false` instead of letting a rejected promise propagate, so callers (the various "Copy" buttons) can show a simple success/fail state without a try/catch at every call site.
-
-### `app/api/generate/route.ts`
-
-- **`jsonError(message, status)`** — tiny helper that returns a `NextResponse` matching the `GenerateAdErrorResponse` shape. Exists so every error path in `POST` returns a consistently-shaped response with one line, instead of repeating `NextResponse.json({ ok: false, error: ... }, { status })` everywhere.
-- **`isValidSettings(settings)`** — a runtime type guard that re-validates the `MarketingSettings` shape from the request body. This exists even though the frontend TypeScript types already constrain what's sent, because the API route can be called by anything (not just this app's frontend) and TypeScript types provide zero protection at runtime — an API endpoint has to validate its input regardless of what the client claims to have sent.
-- **`estimateBase64Bytes(base64)`** — estimates decoded byte size from the base64 string length (`length * 3/4`) without actually decoding it, so the server-side size check is cheap. Exists as a second, independent size check — the client already validates file size, but a request could be crafted to skip that check, so the server can't rely on it.
-- **`POST(req)`** — the route handler. Parses the JSON body, then runs through validation in a specific order (image presence → mime type → size → settings shape → custom-audience-non-empty), returning a 400 with a specific message at the first failure. If all validation passes, it calls `generateAdCopy` and maps any thrown error type (`GeminiConfigError` / `GeminiParseError` / `GeminiRequestError` / unknown) to a distinct HTTP status and a generic, safe message — logging the real error to the server console first. The validation order matters: cheaper, more obviously-wrong checks (is there an image at all) run before more expensive ones (parsing settings), so a malformed request fails fast.
-
-### `app/page.tsx`
-
-- **`canGenerate`** (a `useMemo`, not a function declaration, but the equivalent of one) — derives whether the Generate button should be enabled: an image must be selected, and if "Custom" audience is chosen, the description can't be empty. Recomputed only when `file` or `settings` change.
-- **`handleFileSelected(selected)`** — called when a file is chosen (upload or drag-drop). Sets the file, creates an object URL for the preview (revoking any previous one first to avoid a memory leak), and resets any previous generation result/state/error so a newly-uploaded image doesn't show stale results.
-- **`handleClearImage()`** — clears the file, preview URL (revoking it), and generation state. Shared by the image upload's "Remove" button and, indirectly, by `handleGenerateAnother`.
-- **`runGeneration(isRegenerate)`** — the shared logic behind both "Generate" and "Regenerate". Guards on `file` being present, sets the appropriate loading flag (`state` for a fresh generate, `regenerating` for a regenerate, so the UI can show different loading affordances for each), calls the API route, and on success both saves the result to history (`history.addEntry`) and updates `result`/`state`. Written as one function taking a boolean rather than two separate implementations, since the two flows are identical except for which loading indicator to show.
+- **`canGenerate`** (a `useMemo`, not a named function, but does the same job) — derives whether the Generate button should be enabled: an image must be selected, and if "Custom" audience is chosen, the description field can't be empty. Recomputed only when `file` or `settings` change, so it doesn't recalculate on every keystroke elsewhere on the page.
+- **`handleFileSelected(selected)`** — runs when a file is chosen (via upload or drag-drop). Sets the file, creates a browser object URL for the image preview (revoking any previous one first, to avoid leaking memory), and resets any previous generation result/state/error so a newly-uploaded image never shows stale results from a different product.
+- **`handleClearImage()`** — clears the file, preview URL (revoking it), and generation state. Shared by the image upload's "Remove" button and, indirectly, by `handleGenerateAnother` below.
+- **`runGeneration(isRegenerate)`** — the shared logic behind both "Generate" and "Regenerate." Guards on `file` being present, sets the correct loading flag (`state` for a fresh generate, `regenerating` for a regenerate — kept separate so the UI can show different loading behavior for each), calls `POST /api/generate`, and on success both saves the result to history and updates the displayed result. Written as one function taking a boolean rather than two near-identical functions, since the only real difference between "Generate" and "Regenerate" is which loading indicator lights up.
 - **`handleGenerate` / `handleRegenerate`** — one-line wrappers calling `runGeneration(false)` and `runGeneration(true)` respectively, so the JSX can reference clearly-named handlers instead of an inline boolean.
-- **`handleGenerateAnother()`** — calls `handleClearImage()` and then resets the product-specific settings fields (`customAudience`, `productName`, `keySellingPoint`) via a single `setSettings` update, while deliberately leaving `tone`, `language`, `cta`, and `targetAudienceMode` untouched — so general preferences carry over to the next product but nothing product-specific does.
+- **`handleGenerateAnother()`** — calls `handleClearImage()`, then resets the product-specific settings fields (`customAudience`, `productName`, `keySellingPoint`) in one `setSettings` update, while deliberately leaving `tone`, `language`, `cta`, and `targetAudienceMode` untouched. This distinction (product-specific vs. general-preference settings) is the whole reason this function exists separately from `handleClearImage` — the two look similar but serve different intents.
 
-## 14. Potential improvements
+#### `app/globals.css`
 
-Realistic next steps beyond this MVP, not implemented here since they're out of scope for the assessment:
+No functions — a CSS file. Three things worth noting: it sets `color-scheme: dark` and a dark background/text color on `<body>` (this is the whole app's "theme switch," since every component's colors come from Tailwind design tokens defined in `tailwind.config.ts`, not hardcoded here); it defines a `.focus-ring` utility class reused by every interactive element for consistent keyboard-focus styling; and it disables animations under `prefers-reduced-motion` for accessibility.
 
-- **Authentication** — accounts so history and preferences can be tied to a real user
-- **Server-side history storage** — move generation history into a database keyed to an authenticated user, so it survives across browsers/devices and can't be cleared client-side
-- **Usage limits / rate limiting** — the current build has no generation cap; a production deployment would want abuse protection on the API route regardless of any business-model usage limit
-- **Subscription/payment integration** — if a paid tier is reintroduced
-- **Brand voice configuration** — saved tone/style presets per account
-- **Multiple ad variations per generation** — return 2–3 options to A/B test in one call
-- **A/B testing tools** — track which variant performs better once posted
-- **Performance analytics** — surface real Meta Ads metrics for generated copy
-- **Product catalog integration** — pull from a real store's product feed instead of manual upload
-- **Direct Meta Ads integration** — push generated copy straight into Ads Manager
-- **Better moderation/claim validation** — an automated pass checking generated copy against ad-policy rules before showing it to the user
-- **Image optimization** — resize/compress uploads before sending to Gemini to cut latency and cost
-- **Logging/monitoring** — structured server-side logging and alerting for Gemini failures
+#### `app/api/generate/route.ts`
 
-Specific, smaller items found while writing the function reference above (§13):
+The server-side gatekeeper. Four functions:
 
-- **`lib/utils.ts`'s `urlToFile()` is dead code.** It was written to support the original demo-product quick-select feature, which has since been removed from the UI. It's no longer called anywhere and should be deleted along with its unused import in any file that still references it.
-- **A stale comment in `lib/gemini.ts`.** The comment above `MODEL_NAME` still says `// gemini-2.5-flash: current stable multimodal model...` even though the constant itself was updated to `"gemini-3.6-flash"` — the comment should be updated to match, or removed, so it doesn't mislead a future reader.
-- **No automated tests.** Every verification in this project so far has been manual (`tsc --noEmit`, `next build`, and manual browser testing) — a small test suite around `lib/gemini.ts`'s `parseAdCopyResponse()` and `lib/prompt.ts`'s `buildAdCopyPrompt()` would catch regressions in the two most business-logic-heavy pure functions without needing a real API key or a browser.
+- **`jsonError(message, status)`** — a tiny helper that returns a `NextResponse` matching the app's `GenerateAdErrorResponse` shape. Exists so every error path in `POST` can return a consistently-shaped response in one line instead of repeating the same object literal everywhere.
+- **`isValidSettings(settings)`** — a runtime type guard that re-checks the `MarketingSettings` shape from the incoming request body. This exists even though the frontend's TypeScript types already constrain what *should* be sent, because TypeScript types provide zero protection at runtime — this API endpoint could in principle be called by anything, not just this app's own frontend, so it has to validate its input regardless of what the caller claims to have sent.
+- **`estimateBase64Bytes(base64)`** — estimates decoded byte size from the base64 string's length (`length * 3/4`) without actually decoding it, so the server-side size check stays cheap. This is a second, independent size check — the browser already validates file size before sending, but a request could be crafted by hand to skip that check, so the server can't rely on the client having done it.
+- **`POST(req)`** — the route handler itself. Parses the JSON body, then validates in a specific order: image presence → mime type → size → settings shape → custom-audience-non-empty — returning a 400 with a specific message at the first failure. Cheaper, more obviously-wrong checks run before more expensive ones, so a malformed request fails fast rather than doing unnecessary work first. If everything passes, it calls `generateAdCopy()` from `lib/gemini.ts` and maps whichever typed error comes back (`GeminiConfigError` / `GeminiParseError` / `GeminiRequestError` / anything else) to a distinct HTTP status and a generic, safe client-facing message — logging the real error to the server console first, so nothing about the Gemini provider, the API key, or an internal stack trace ever reaches the browser.
+
+### `components/`
+
+#### `components/SiteNav.tsx`
+
+One function, `SiteNav()`, and it's pure JSX — no state, no props, no logic. It exists as its own file (rather than being inlined into `layout.tsx`) simply so the nav bar is a self-contained, easily-swappable unit.
+
+#### `components/ImageUpload.tsx`
+
+- **`formatMb(bytes)`** — a tiny pure function converting a byte count into a human string like `"8MB"`. Used so the max-size number shown to the user and the actual limit enforced in code can never drift apart — both read from the same `MAX_IMAGE_SIZE_BYTES` constant in `lib/types.ts`.
+- **`validateAndUse(file)`** — runs whenever a file arrives, whether from clicking to browse or dragging-and-dropping. Checks the file's type against `ACCEPTED_IMAGE_TYPES` and its size against `MAX_IMAGE_SIZE_BYTES`, setting a specific error message and bailing out on either failure; otherwise clears any previous error and hands the file up to the parent via the `onFileSelected` prop. Centralizing this in one function means both the "browse" input's `onChange` and the drag-and-drop `onDrop` handler can call the exact same validation logic instead of duplicating it.
+- The rest of the component is conditional JSX: if `previewUrl` is set, it renders the uploaded-image preview with a "Remove" button; otherwise it renders the empty dashed-border drop zone with the upload icon and instructions.
+
+#### `components/MarketingSettingsForm.tsx`
+
+- **`Field({ label, optional, children })`** — a small internal layout component (technically a function, just like any other) that renders a label row (with an "Optional · helps the AI be more accurate" hint when `optional` is true) above whatever form control is passed as `children`. Exists purely to keep the six settings fields visually consistent without repeating the same label markup six times.
+- **`set(key, value)`** — a small generic helper defined inside `MarketingSettingsForm` itself. Rather than writing six separate `onChange` handlers (one per setting), every pill button and text input calls `set("someKey", newValue)`, which spreads the existing `settings` object and overwrites just that one key before calling the parent's `onChange`. This is the core reason the whole settings panel can stay one flat component instead of being split into six controlled sub-components each managing its own change handler.
+- The rest of the file is JSX rendering pill buttons for Target Audience / Tone / Language / Call to Action (each just calling `set(...)` with a different key and value), and plain text inputs for the two optional fields, Product Name and Key Selling Point / Benefit.
+
+#### `components/AdResults.tsx`
+
+- **`CopyButton({ text, label })`** — a small self-contained component with its own `copied` state. Calls `copyToClipboard()` from `lib/utils.ts`, and if it succeeds, flips a local `copied` flag to true for 1.5 seconds (via `setTimeout`) so the button label changes to "Copied ✓" and then reverts — all without the parent component needing to know or care about that state.
+- **`Row({ label, value })`** — a tiny presentational component pairing a field label with its value and a `CopyButton`. Used four times (Primary text, Headline, Description, Call to action) so the same layout doesn't get repeated by hand four times.
+- The main `AdResults` component itself computes `allText` (a plain string concatenation of all four fields, used by the "Copy all" button) and manages one more local `copiedAll` boolean for that button's own "Copied ✓" flash. Everything else is JSX: the left column renders a mockup styled to look like an actual Facebook post (deliberately hardcoded to light/white colors regardless of the app's dark theme, since a real Facebook post is never dark-mode), and the right column renders the four `Row`s plus the Regenerate / Generate another ad buttons, which just call the `onRegenerate` / `onGenerateAnother` props passed down from `page.tsx`.
+
+#### `components/RecentGenerations.tsx`
+
+One function, `RecentGenerations(...)`, with one piece of local state: `confirmingClear` (a boolean controlling whether the "are you sure?" dialog is showing). There's no separate named function for the confirm/cancel logic — clicking "Clear history" sets `confirmingClear` to `true`; clicking "Cancel" sets it back to `false`; clicking the confirm button inside the dialog calls the parent's `onClear` prop and then also resets `confirmingClear` to `false`, all inline in the `onClick` handlers. The rest is conditional JSX: an empty-state message when `entries` is empty, otherwise a list of cards built with `entries.map(...)`, each showing the product name, headline, a truncated primary-text preview, a relative timestamp (via `formatRelativeTime` from `lib/history.ts`), and a "View" button that calls the parent's `onView` prop with that entry.
+
+#### `components/HistoryEntryModal.tsx`
+
+- **`Field({ label, value })`** — the same small pattern as in `MarketingSettingsForm.tsx` and `AdResults.tsx`'s `Row`, just named differently in this file: pairs a label with a value, reused four times for the four text fields of a past generation.
+- The main `HistoryEntryModal` component takes the `entry` being viewed (or `null`) and returns `null` immediately if there's nothing to show — this is what lets `page.tsx` render `<HistoryEntryModal entry={viewingEntry} .../>` unconditionally without needing its own `if` check. It explicitly tells the user the original image isn't available, since history intentionally never stores the uploaded photo (see `lib/history.ts` below).
+
+### `lib/`
+
+#### `lib/types.ts`
+
+No functions — this file is entirely type definitions (`MarketingSettings`, `AdCopyResult`, `GenerationHistoryEntry`, etc.) and a handful of constants (`CTA_OPTIONS`, `ACCEPTED_IMAGE_TYPES`, `MAX_IMAGE_SIZE_BYTES`, `HISTORY_LIMIT`). It exists as its own file specifically so that every other file — frontend components, the API route, and the Gemini integration — can import the exact same shape of data and never disagree about what a "setting" or a "result" looks like.
+
+#### `lib/prompt.ts`
+
+- **`buildAdCopyPrompt(settings)`** — the only exported function. Takes the user's `MarketingSettings` and returns the full instruction string sent to Gemini. It's a pure function (settings in, string out), which is deliberate: the prompt can be reviewed, tuned, or tested without touching the network call or the API route at all. Internally it builds a handful of small conditional instruction fragments using ternaries (for audience, product name, selling point) — each one gives Gemini an explicit fallback instruction when the user left that field blank, so the model never has to guess what "not provided" is supposed to mean. Two `Record<...>` lookup tables (`TONE_GUIDANCE`, `LANGUAGE_NAME`) map the UI's short option values (like `"friendly"` or `"sl"`) to fuller instruction sentences, so the settings dropdown values and the prompt's wording can change independently of each other.
+
+#### `lib/gemini.ts`
+
+- **`getClient()`** — reads `GEMINI_API_KEY` from `process.env` and constructs a `GoogleGenAI` client. Throws a typed `GeminiConfigError` if the key is missing, rather than letting the SDK fail later with a less specific error — this makes "the server forgot to set the env var" a distinct, recognizable failure mode instead of an opaque crash.
+- **`extractJsonBlock(raw)`** — a defensive parsing helper. Gemini is instructed to return raw JSON with no markdown formatting, but models don't always comply perfectly, so this strips ` ```json ` code fences if present, and falls back to slicing out the first `{...}` block from the response text if no fence is found. Exists because trusting the model to always format its output exactly right would make real generations fail more often than necessary.
+- **`parseAdCopyResponse(raw)`** — takes the raw text response and turns it into a validated `AdCopyResult`. Parses the JSON (throwing `GeminiParseError` on failure), checks that `primaryText`, `headline`, `description`, and `cta` are all present and non-empty strings, and defaults `productName` to `"Uploaded Product"` if Gemini omits it rather than failing the whole generation over one non-essential field. This function is where "don't trust the AI's output shape, verify it" actually happens in code.
+- **`generateAdCopy(imageBase64, mimeType, settings)`** — the main exported entry point, called by the API route. Builds the client and the prompt, sends the image plus prompt to Gemini, and passes the response through `parseAdCopyResponse`. Afterward, it does two things deliberately *not* left up to the AI to get right: it overwrites the returned `cta` with `settings.cta` unconditionally, and overwrites `productName` with the user's own value if one was supplied. The prompt already instructs Gemini to respect both, but this function doesn't rely on the instruction being followed — it enforces the outcome in code, so neither value can end up wrong even if the model ignores what it was told.
+
+#### `lib/history.ts`
+
+- **`isBrowser()`** — returns whether `window` and `localStorage` exist. Every other function in this file checks this first, since Next.js renders this code on the server too (during server-side rendering), where `window` doesn't exist at all.
+- **`isValidEntry(value)`** — a type guard checking that an unknown value has every field a `GenerationHistoryEntry` needs, with the right types. Used to filter out corrupted or old-shape data read back from `localStorage`, since anything read from browser storage should be treated as untrusted — a user could hand-edit it in devtools, or an older version of the app could have written a different shape.
+- **`getGenerationHistory()`** — reads and parses the stored array, returning `[]` on the server, on missing data, or on any parse error, rather than throwing. Runs the result through `isValidEntry` so malformed entries silently drop instead of crashing the page.
+- **`saveGeneration(result)`** — builds a new `GenerationHistoryEntry` (generating an id from a timestamp plus a random suffix, since there's no server available to issue one), prepends it to the existing list, and trims to `HISTORY_LIMIT` (10) before writing back. The `localStorage.setItem` write is wrapped in try/catch, since it can throw if storage is full — in that case the function still returns the new in-memory list so the UI updates, it just silently fails to persist that particular write, rather than crashing the whole generation flow over a storage quota issue.
+- **`clearGenerationHistory()`** — removes the storage key entirely. Wrapped in try/catch for the same reason as above.
+- **`formatRelativeTime(timestamp)`** — a pure function turning a millisecond timestamp into `"Just now"` / `"N min ago"` / `"N hour(s) ago"` / `"N day(s) ago"`. Kept separate from the storage functions since it's purely a display concern, not a persistence concern, and it's reused by both `RecentGenerations` and `HistoryEntryModal`.
+
+#### `lib/useGenerationHistory.ts`
+
+- **`useGenerationHistory()`** — the only function in the file, a React hook wrapping `lib/history.ts` for components to use. It starts with an empty array on the very first render, both on the server and on the client, and only loads the real `localStorage` contents inside a `useEffect`, which runs after the page has hydrated. This two-phase approach exists specifically to avoid a Next.js hydration error: if the hook read `localStorage` synchronously during render, the server-rendered HTML (which has no access to browser storage at all) would come out different from what the client renders on its first pass, and React would throw a mismatch error. `addEntry` and `clearAll` are thin wrappers that call the underlying storage functions from `history.ts` and then sync the result into React state so the UI re-renders immediately.
+
+#### `lib/utils.ts`
+
+- **`fileToBase64(file)`** — wraps the browser's `FileReader` (a callback-based API) in a Promise, and strips the `data:...;base64,` prefix from the result, since the API route expects raw base64 with no prefix. Called right before every `fetch("/api/generate")`.
+- **`copyToClipboard(text)`** — a thin wrapper around `navigator.clipboard.writeText` that returns `true`/`false` instead of letting a rejected promise propagate, so every "Copy" button can show a simple success/fail state without needing its own try/catch.
+
+(A third function, `urlToFile()`, previously lived in this file to support the original demo-product quick-select feature. That feature has since been removed from the UI, and the function is unused — see §5.)
+
+## 4. How a single "Generate" click flows through these files
+
+1. The user interacts with **`ImageUpload.tsx`** and **`MarketingSettingsForm.tsx`**; the actual state for both lives up in **`page.tsx`**, which passes it down as props and receives updates back via callbacks.
+2. The user clicks **Generate**. `page.tsx`'s `runGeneration(false)` runs: it calls `fileToBase64()` from **`utils.ts`** to convert the uploaded image, then sends a `POST` request to `/api/generate` with the base64 image and the current settings.
+3. **`app/api/generate/route.ts`**'s `POST` handler receives the request, validates the image and settings (`isValidSettings`, `estimateBase64Bytes`), and — if everything checks out — calls `generateAdCopy()` from **`lib/gemini.ts`**.
+4. **`lib/gemini.ts`** builds the actual AI instructions by calling `buildAdCopyPrompt()` in **`lib/prompt.ts`**, sends that prompt plus the image to Google's Gemini API, and validates/normalizes whatever comes back via `parseAdCopyResponse()` — including force-setting the CTA and product name to match the user's selections exactly.
+5. The result travels back up through the API route (wrapped as a clean JSON success response) to `page.tsx`.
+6. `page.tsx` does two things with the result: it displays it via **`AdResults.tsx`** (the Facebook-post mockup and the copyable fields), and it saves it to history by calling `history.addEntry(result)`, which flows into **`useGenerationHistory.ts`** and then **`lib/history.ts`**'s `saveGeneration()`, which writes it into `localStorage`.
+7. The next time **`RecentGenerations.tsx`** renders, the new entry appears at the top of the list.
+
+If the user clicks **Regenerate** instead, the flow is identical from step 2 onward — `runGeneration(true)` reuses the same image and same settings, just setting a different loading flag so the UI shows "Regenerating…" instead of the initial loading state.
+
+## 5. Potential Improvements
+
+The current implementation intentionally focuses on providing a simple, functional MVP. The following improvements would be priorities when moving from a demonstration tool toward a production product.
+
+### 1. Authentication & Server-Side History
+Add user accounts and move generation history from browser `localStorage` to a database. This would allow users to access their history across browsers and devices while securely associating stored data with individual accounts.
+
+### 2. Usage Limits & Rate Limiting
+Implement server-side generation limits and API rate limiting to prevent abuse and control Gemini API costs. The current client-side limit is suitable for the exercise, but production limits should be enforced on the server and should not rely on client-side state.
+
+### 3. Multiple Ad Variations & A/B Testing
+Allow users to generate multiple copy variations for the same product, using different marketing angles or hooks. This could later be extended into A/B testing to determine which variation performs better.
+
+### 4. Product Catalog Integration
+Integrate with an ecommerce product catalog or product feed so product images and information can be retrieved automatically instead of requiring users to upload and enter product details manually.
+
+### 5. Automated Claim & Policy Validation
+Add a validation layer that checks generated copy for unsupported product claims and common advertising-policy issues before displaying or publishing the copy. This would reduce the risk of misleading or non-compliant advertising content.
+
+### 6. saved tone/style presets per account
+
+
+

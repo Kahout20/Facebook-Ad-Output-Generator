@@ -7,7 +7,10 @@ interface HistoryEntryModalProps {
   entry: GenerationHistoryEntry | null;
   onClose: () => void;
 }
-
+// Reusable label/value row for displaying individual fields from a past generation.
+// HistoryEntryModal returns null when no entry is selected, allowing page.tsx to render
+// it unconditionally. It displays the saved ad details and explicitly indicates that
+// the original uploaded image is not stored in history.
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-2.5">

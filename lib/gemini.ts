@@ -10,6 +10,10 @@ export class GeminiConfigError extends Error {}
 export class GeminiRequestError extends Error {}
 export class GeminiParseError extends Error {}
 
+
+// Initializes the Gemini client using GEMINI_API_KEY from the server environment and throws
+// a typed GeminiConfigError when the key is missing, providing a clear configuration failure
+// instead of allowing the SDK to fail later with an opaque authentication/runtime error.
 function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -21,7 +25,10 @@ function getClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-/** Strips ```json fences etc. in case the model doesn't obey the "no markdown" instruction. */
+/*  Defensively extracts JSON from Gemini's response by removing optional markdown
+// code fences or isolating the first JSON object, reducing failures when the model
+// does not follow the expected raw-JSON format exactly 
+// Basically removes harmeless possible extra formatting done by gemini which is not needed- extract only json*/
 function extractJsonBlock(raw: string): string {
   const trimmed = raw.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -34,7 +41,9 @@ function extractJsonBlock(raw: string): string {
   }
   return trimmed;
 }
-
+// Parses Gemini's raw response into a validated AdCopyResult, throwing GeminiParseError
+// for invalid JSON or missing required fields, and defaulting a missing productName
+// to "Uploaded Product" since it is non-essential. BASICALLY KEEPING CHECK OF GEMINI RESPONSE
 function parseAdCopyResponse(raw: string): AdCopyResult {
   let parsed: unknown;
   try {
@@ -78,7 +87,10 @@ function parseAdCopyResponse(raw: string): AdCopyResult {
     cta: cta.trim(),
   };
 }
-
+// Main Gemini generation entry point called by the API route. Builds the client and prompt,
+// sends the product image and instructions to Gemini, validates the response via
+// parseAdCopyResponse, then enforces the user's CTA and supplied product name in code
+// instead of relying solely on the AI to follow those instructions.(THE LAST PART IS KINDA EXTRA BUT IT ENSURES THAT NO CRITICAL MISTAKE IS DONE BY GEMINI-BY CHANGING SELECTED ACTIONS)
 export async function generateAdCopy(
   imageBase64: string,
   mimeType: string,

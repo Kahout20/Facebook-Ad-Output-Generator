@@ -13,7 +13,7 @@ const TONE_OPTIONS: { value: Tone; label: string }[] = [
   { value: "urgent", label: "Urgent" },
   { value: "premium", label: "Premium" },
 ];
-
+// Reusable settings field layout from components/MarketingSettings.tsx; keeps labels and optional hints consistent.
 function Field({
   label,
   optional,
@@ -42,6 +42,7 @@ const inputClasses =
 const pillBase =
   "focus-ring cursor-pointer select-none rounded-full border px-4 py-2 text-sm font-medium transition-colors";
 
+  // Reusable helper that updates individual settings fields while preserving the rest of the settings object.
 export function MarketingSettingsForm({ settings, onChange }: MarketingSettingsFormProps) {
   const set = <K extends keyof MarketingSettings>(key: K, value: MarketingSettings[K]) =>
     onChange({ ...settings, [key]: value });

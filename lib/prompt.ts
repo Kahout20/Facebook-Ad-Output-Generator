@@ -1,3 +1,12 @@
+// Builds and returns the complete Gemini instruction prompt from the user's MarketingSettings.
+// Uses conditional fragments for optional fields, providing explicit fallback instructions
+// when audience, product name, or selling point are not supplied. TONE_GUIDANCE and
+// LANGUAGE_NAME lookup tables translate UI option values into detailed prompt instructions,
+// keeping UI values independent from the wording used in the Gemini prompt. Kept pure
+// (settings in, prompt string out) so the prompt can be reviewed, tested, and refined independently
+// of the API/network logic.
+
+
 import { MarketingSettings } from "./types";
 
 const TONE_GUIDANCE: Record<MarketingSettings["tone"], string> = {

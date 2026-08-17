@@ -10,7 +10,7 @@ interface RecentGenerationsProps {
   onView: (entry: GenerationHistoryEntry) => void;
   onClear: () => void;
 }
-
+// Renders generation history, handles clear-history confirmation, and uses formatRelativeTime() from lib/history.ts for timestamps.
 export function RecentGenerations({ entries, hydrated, onView, onClear }: RecentGenerationsProps) {
   const [confirmingClear, setConfirmingClear] = useState(false);
 

@@ -14,11 +14,11 @@ import {
 } from "@/lib/types";
 
 export const runtime = "nodejs";
-
+// Helper that returns a consistently shaped error response for the Generate Ad API.
 function jsonError(message: string, status: number): NextResponse<GenerateAdResponse> {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
-
+//// Runtime guard that validates incoming marketing settings before API processing.
 function isValidSettings(settings: unknown): settings is MarketingSettings {
   if (typeof settings !== "object" || settings === null) return false;
   const s = settings as Record<string, unknown>;
@@ -37,6 +37,7 @@ function estimateBase64Bytes(base64: string): number {
   return Math.floor((base64.length * 3) / 4);
 }
 
+//Validates all the input entered by user..Upon success, calls generateAdCopy() from lib/gemini.ts on success, and maps errors to safe HTTP responses.
 export async function POST(req: NextRequest) {
   let body: GenerateAdRequestBody;
   try {

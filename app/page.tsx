@@ -40,12 +40,14 @@ export default function HomePage() {
 
   const history = useGenerationHistory();
 
+//when the Generate button should be enabled: an image must be selected, and if "Custom" audience is chosen, the description field can't be empty.
   const canGenerate = useMemo(() => {
     if (!file) return false;
     if (settings.targetAudienceMode === "custom" && !settings.customAudience.trim()) return false;
     return true;
   }, [file, settings]);
 
+//this runs when a file is chosen. Sets the file, creates a browser object URL for the image preview (revoking any previous one first, to avoid leaking memory), and resets any previous generation result/state/error so a newly-uploaded image never shows stale results from a different product.
   const handleFileSelected = useCallback((selected: File) => {
     setFile(selected);
     setPreviewUrl((prev) => {
@@ -57,6 +59,7 @@ export default function HomePage() {
     setGenerateError(null);
   }, []);
 
+  //clears the file, preview URL and generation state. Shared by the image upload's "Remove" button and, indirectly, by `handleGenerateAnother` func below.
   const handleClearImage = useCallback(() => {
     setFile(null);
     setPreviewUrl((prev) => {
@@ -68,6 +71,7 @@ export default function HomePage() {
     setGenerateError(null);
   }, []);
 
+// Shared generation logic for both Generate and Regenerate. Uses isRegenerate to select the appropriate loading state, calls the API, then updates the result and saves it to generation history on success.
   const runGeneration = useCallback(
     async (isRegenerate: boolean) => {
       if (!file) return;
@@ -108,9 +112,11 @@ export default function HomePage() {
     [file, settings, history]
   );
 
+  // Named wrappers for Generate and Regenerate handlers- CLEARE REFRENCE FOR JSX INSTEAD OF INLINE BOOLEAN
   const handleGenerate = () => runGeneration(false);
   const handleRegenerate = () => runGeneration(true);
 
+  // Clears the image and resets product-specific settings while preserving general preferences.
   const handleGenerateAnother = () => {
     handleClearImage();
     setSettings((prev) => ({

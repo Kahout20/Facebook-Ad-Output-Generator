@@ -1,4 +1,5 @@
-/** Reads a File as a base64 string (no "data:...;base64," prefix). */
+/**Converts a browser File to raw base64 using FileReader, removing the data-URL prefix before sending it to /api/generate. */
+
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -11,18 +12,8 @@ export function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-
-/** Fetches a same-origin image URL (e.g. a demo product) and returns it as a File. */
-export async function urlToFile(url: string, filename: string): Promise<File> {
-  const res = await fetch(url);
-  const blob = await res.blob();
-  // Use the blob's real content type rather than guessing — the placeholder
-  // demo images ship as SVG (which the generator intentionally rejects,
-  // since it isn't a real product photo); once replaced with a real JPG/PNG
-  // this resolves correctly on its own.
-  return new File([blob], filename, { type: blob.type });
-}
-
+// Wraps navigator.clipboard.writeText() and returns a boolean success/failure result,
+// allowing Copy buttons to handle clipboard errors without their own try/catch.
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);

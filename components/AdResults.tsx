@@ -12,7 +12,7 @@ interface AdResultsProps {
   onGenerateAnother: () => void;
   regenerating: boolean;
 }
-
+// Self-contained copy button using copyToClipboard() from lib/utils.ts and local copied state for temporary feedback.
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -34,6 +34,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+// Reusable result row with a label, value, and CopyButtons(all four); AdResults also handles copy-all state and Facebook-style preview rendering.
 function Row({
   label,
   value,

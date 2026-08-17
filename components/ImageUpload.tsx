@@ -14,7 +14,7 @@ interface ImageUploadProps {
   error: string | null;
   setError: (message: string | null) => void;
 }
-
+// Pure helper that formats byte counts for display using the shared MAX_IMAGE_SIZE_BYTES limit.
 function formatMb(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
 }
@@ -29,6 +29,8 @@ export function ImageUpload({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+
+// Validates selected files using constants from lib/types.ts, then passes valid files to the parent via onFileSelected.
   const validateAndUse = useCallback(
     (file: File | undefined) => {
       if (!file) return;
@@ -46,7 +48,7 @@ export function ImageUpload({
     },
     [onFileSelected, setError]
   );
-
+//he rest of the component is conditional JSX: if `previewUrl` is set, it renders the uploaded-image preview with a "Remove" button; otherwise it renders the empty dashed-border drop zone with the upload icon and instructions.
   if (previewUrl) {
     return (
       <div className="animate-fadeUp">

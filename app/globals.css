@@ -1,3 +1,5 @@
+/* Global dark theme, shared focus styling, and reduced-motion accessibility support. */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

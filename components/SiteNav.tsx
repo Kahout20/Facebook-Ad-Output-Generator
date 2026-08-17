@@ -1,3 +1,4 @@
+//pure jsx for nav bar at the top of the page
 export function SiteNav() {
   return (
     <nav className="border-b border-line">

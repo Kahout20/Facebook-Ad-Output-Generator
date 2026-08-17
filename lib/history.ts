@@ -10,11 +10,13 @@ import { AdCopyResult, GenerationHistoryEntry, HISTORY_LIMIT } from "./types";
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = "fbAdGenerator.generationHistory";
-
+// Checks whether window and localStorage are available before any browser-only storage operation,
+// preventing errors when this code is executed during Next.js server-side rendering.
 function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
-
+// Type guard that validates unknown localStorage data against the GenerationHistoryEntry shape,
+// filtering out corrupted or outdated entries before they are used by the application.
 function isValidEntry(value: unknown): value is GenerationHistoryEntry {
   if (typeof value !== "object" || value === null) return false;
   const e = value as Record<string, unknown>;

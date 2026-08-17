@@ -1,6 +1,11 @@
 // Core domain types shared between the frontend, the API route, and the
 // Gemini integration layer.
-
+// Shared type definitions and application-wide constants used by the frontend,
+// API route, and Gemini integration. Defines the expected structure of marketing
+// settings, generated ad results, and history entries, while constants such as
+// CTA_OPTIONS, ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE_BYTES, and HISTORY_LIMIT
+// centralize supported values and validation limits so different parts of the
+// application use the same data shapes and rules.
 export type TargetAudienceMode = "auto" | "custom";
 
 export type Tone = "persuasive" | "friendly" | "urgent" | "premium";
