@@ -1,6 +1,6 @@
 "use client";
 
-import { MarketingSettings, Tone } from "@/lib/types";
+import { CTA_OPTIONS, MarketingSettings, Tone } from "@/lib/types";
 
 interface MarketingSettingsFormProps {
   settings: MarketingSettings;
@@ -133,6 +133,26 @@ export function MarketingSettingsForm({ settings, onChange }: MarketingSettingsF
         </div>
       </Field>
 
+      <Field label="Call to action">
+        <div className="flex flex-wrap gap-2">
+          {CTA_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => set("cta", option)}
+              className={`${pillBase} ${
+                settings.cta === option
+                  ? "border-brand bg-brand text-white"
+                  : "border-line bg-paper text-ink hover:border-brand/40"
+              }`}
+              aria-pressed={settings.cta === option}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </Field>
+
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Product name" optional>
           <input
@@ -143,7 +163,7 @@ export function MarketingSettingsForm({ settings, onChange }: MarketingSettingsF
             className={inputClasses}
           />
         </Field>
-        <Field label="Key selling point" optional>
+        <Field label="Key selling point / benefit" optional>
           <input
             type="text"
             value={settings.keySellingPoint}

@@ -7,11 +7,14 @@ export type Tone = "persuasive" | "friendly" | "urgent" | "premium";
 
 export type Language = "sl" | "en";
 
+export type CtaOption = "Shop Now" | "Learn More" | "Get Offer";
+
 export interface MarketingSettings {
   targetAudienceMode: TargetAudienceMode;
   customAudience: string; // only used when targetAudienceMode === "custom"
   tone: Tone;
   language: Language;
+  cta: CtaOption;
   productName: string; // optional, may be ""
   keySellingPoint: string; // optional, may be ""
 }
@@ -56,12 +59,7 @@ export type GenerateAdResponse =
   | GenerateAdSuccessResponse
   | GenerateAdErrorResponse;
 
-export const CTA_OPTIONS = [
-  "Shop Now",
-  "Learn More",
-  "Order Now",
-  "Get Yours Today",
-] as const;
+export const CTA_OPTIONS: CtaOption[] = ["Shop Now", "Learn More", "Get Offer"];
 
 export const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",

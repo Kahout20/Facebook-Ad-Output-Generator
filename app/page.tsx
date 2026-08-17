@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: MarketingSettings = {
   customAudience: "",
   tone: "persuasive",
   language: "en",
+  cta: "Shop Now",
   productName: "",
   keySellingPoint: "",
 };
@@ -112,6 +113,12 @@ export default function HomePage() {
 
   const handleGenerateAnother = () => {
     handleClearImage();
+    setSettings((prev) => ({
+      ...prev,
+      customAudience: "",
+      productName: "",
+      keySellingPoint: "",
+    }));
   };
 
   return (
@@ -149,17 +156,30 @@ export default function HomePage() {
           <>
             <MarketingSettingsForm settings={settings} onChange={setSettings} />
 
-            <div className="rounded-xl2 border border-line bg-surface p-5 shadow-card sm:p-6">
-              {generateError && (
-                <p role="alert" className="mb-4 text-sm font-medium text-danger">
-                  {generateError}
+            <div className="flex flex-col items-start justify-between gap-4 rounded-xl2 border border-line bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:p-6">
+              <div>
+                <p className="font-display text-base font-semibold text-ink">
+                  Ready to create your ad?
                 </p>
-              )}
+                <p className="mt-1 text-sm text-muted">
+                  AI will analyze your product image and tailor the copy to your settings.
+                </p>
+                {generateError && (
+                  <p role="alert" className="mt-3 text-sm font-medium text-danger">
+                    {generateError}
+                  </p>
+                )}
+                {state === "loading" && (
+                  <p className="mt-3 text-xs text-muted">
+                    Gemini is analyzing your product image — this usually takes a few seconds.
+                  </p>
+                )}
+              </div>
               <button
                 type="button"
                 disabled={!canGenerate || state === "loading"}
                 onClick={handleGenerate}
-                className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white shadow-pop transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
+                className="focus-ring inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-white shadow-pop transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
               >
                 {state === "loading" ? (
                   <>
@@ -167,14 +187,14 @@ export default function HomePage() {
                     Generating…
                   </>
                 ) : (
-                  "Generate Facebook Ad"
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z" />
+                    </svg>
+                    Generate Facebook Ad
+                  </>
                 )}
               </button>
-              {state === "loading" && (
-                <p className="mt-3 text-xs text-muted">
-                  Gemini is analyzing your product image — this usually takes a few seconds.
-                </p>
-              )}
             </div>
           </>
         )}

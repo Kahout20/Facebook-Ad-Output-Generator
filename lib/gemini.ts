@@ -2,8 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import { AdCopyResult, MarketingSettings } from "./types";
 import { buildAdCopyPrompt } from "./prompt";
 
+// gemini-3.6-flash: current stable multimodal model — reads the product
+// image and writes the JSON ad copy in one call.
 const MODEL_NAME = "gemini-3.6-flash";
-const REQUIRED_CTAS = ["Shop Now", "Learn More", "Order Now", "Get Yours Today"];
 
 export class GeminiConfigError extends Error {}
 export class GeminiRequestError extends Error {}
@@ -69,18 +70,12 @@ function parseAdCopyResponse(raw: string): AdCopyResult {
       ? productName.trim()
       : "Uploaded Product";
 
-  // Normalize the CTA to one of the allowed values rather than failing hard
-  // if the model returns something close-but-not-exact.
-  const normalizedCta =
-    REQUIRED_CTAS.find((c) => c.toLowerCase() === cta.trim().toLowerCase()) ??
-    REQUIRED_CTAS[0];
-
   return {
     productName: normalizedProductName,
     primaryText: primaryText.trim(),
     headline: headline.trim(),
     description: description.trim(),
-    cta: normalizedCta,
+    cta: cta.trim(),
   };
 }
 
@@ -112,9 +107,13 @@ export async function generateAdCopy(
 
   const parsed = parseAdCopyResponse(responseText);
 
+  // The selected CTA always wins — Gemini is instructed to echo it back,
+  // but we never trust that; the user's pill selection is authoritative.
+  const withCta: AdCopyResult = { ...parsed, cta: settings.cta };
+
   // A user-supplied product name always takes priority over AI identification.
   if (settings.productName.trim()) {
-    return { ...parsed, productName: settings.productName.trim() };
+    return { ...withCta, productName: settings.productName.trim() };
   }
-  return parsed;
+  return withCta;
 }
