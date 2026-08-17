@@ -44,9 +44,8 @@ export function RecentGenerations({ entries, hydrated, onView, onClear }: Recent
             <li key={entry.id} className="rounded-lg border border-line p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
-                    <path d="M7 3h7l4 4v14H7V3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                    <path d="M14 3v4h4" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="shrink-0 text-brand">
+                    <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z" />
                   </svg>
                   <span className="truncate">{entry.productName}</span>
                 </div>

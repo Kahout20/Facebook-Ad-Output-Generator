@@ -68,25 +68,25 @@ export function AdResults({
         {/* Live ad preview mockup — the signature element: the output is shown
             the way it will actually appear as a Facebook ad, not as a plain
             text card. */}
-        <div className="overflow-hidden rounded-xl2 border border-line bg-surface shadow-card">
-          <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-            <div className="h-8 w-8 rounded-full bg-brand-light" />
+        <div className="overflow-hidden rounded-xl2 border border-line bg-white shadow-card">
+          <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-3">
+            <div className="h-8 w-8 rounded-full bg-neutral-200" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink">Your Page</p>
-              <p className="text-xs text-muted">Sponsored</p>
+              <p className="truncate text-sm font-semibold text-neutral-900">Your Page</p>
+              <p className="text-xs text-neutral-500">Sponsored</p>
             </div>
           </div>
-          <p className="whitespace-pre-line px-4 py-3 text-sm text-ink">{result.primaryText}</p>
-          <div className="relative aspect-square w-full bg-brand-light">
+          <p className="whitespace-pre-line px-4 py-3 text-sm text-neutral-900">{result.primaryText}</p>
+          <div className="relative aspect-square w-full bg-neutral-100">
             <Image src={imagePreviewUrl} alt="Product" fill className="object-contain p-6" unoptimized />
           </div>
-          <div className="flex items-center justify-between gap-3 bg-paper px-4 py-3">
+          <div className="flex items-center justify-between gap-3 bg-neutral-50 px-4 py-3">
             <div className="min-w-0">
-              <p className="truncate text-xs uppercase tracking-wide text-muted">yoursite.com</p>
-              <p className="truncate text-sm font-semibold text-ink">{result.headline}</p>
-              <p className="truncate text-xs text-muted">{result.description}</p>
+              <p className="truncate text-xs uppercase tracking-wide text-neutral-500">yoursite.com</p>
+              <p className="truncate text-sm font-semibold text-neutral-900">{result.headline}</p>
+              <p className="truncate text-xs text-neutral-500">{result.description}</p>
             </div>
-            <span className="shrink-0 rounded-md bg-ink px-3 py-2 text-xs font-semibold text-white">
+            <span className="shrink-0 rounded-md bg-neutral-900 px-3 py-2 text-xs font-semibold text-white">
               {result.cta}
             </span>
           </div>

@@ -5,30 +5,31 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#14181F",
-        paper: "#FAFAF9",
-        surface: "#FFFFFF",
-        line: "#E4E4E1",
-        muted: "#6B7280",
+        ink: "#F3F6FA",
+        paper: "#0A0E17",
+        surface: "#121826",
+        line: "#232B3D",
+        muted: "#8A93A6",
         brand: {
-          DEFAULT: "#2F5DE3",
-          dark: "#1F3FAE",
-          light: "#EEF2FF",
+          DEFAULT: "#2DD4BF",
+          dark: "#14B8A6",
+          light: "rgba(45, 212, 191, 0.12)",
         },
         accent: {
-          DEFAULT: "#F2A93C",
-          dark: "#D98D1F",
+          DEFAULT: "#8B5CF6",
+          dark: "#7C3AED",
+          light: "rgba(139, 92, 246, 0.14)",
         },
-        danger: "#DC4C3E",
-        success: "#1F9D6B",
+        danger: "#F87171",
+        success: "#34D399",
       },
       fontFamily: {
         display: ["var(--font-sora)", "sans-serif"],
         body: ["var(--font-inter)", "sans-serif"],
       },
       boxShadow: {
-        card: "0 1px 2px rgba(20,24,31,0.04), 0 8px 24px -12px rgba(20,24,31,0.12)",
-        pop: "0 12px 32px -8px rgba(47,93,227,0.35)",
+        card: "0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6)",
+        pop: "0 12px 32px -8px rgba(45,212,191,0.35)",
       },
       borderRadius: {
         xl2: "1.25rem",

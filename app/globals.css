@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
-  background-color: #FAFAF9;
-  color: #14181F;
+  background-color: #0A0E17;
+  color: #F3F6FA;
 }
 
 @layer utilities {

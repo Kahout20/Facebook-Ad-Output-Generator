@@ -117,13 +117,13 @@ export default function HomePage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
       <header className="mb-10">
-        <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-brand-light px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand">
+        <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-light px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z" />
           </svg>
           AI-powered
         </p>
-        <h1 className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+        <h1 className="bg-gradient-to-r from-accent via-ink to-brand bg-clip-text font-display text-3xl font-bold tracking-tight text-transparent sm:text-4xl">
           AI Facebook Ad Copy Generator
         </h1>
         <p className="mt-2 max-w-xl text-base text-muted">

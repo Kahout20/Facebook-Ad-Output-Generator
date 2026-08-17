@@ -77,51 +77,53 @@ export function ImageUpload({
 
   return (
     <div>
-      <label
-        htmlFor="product-image-input"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          validateAndUse(e.dataTransfer.files?.[0]);
-        }}
-        className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl2 border-2 border-dashed px-6 py-14 text-center transition-colors ${
-          isDragging
-            ? "border-brand bg-brand-light"
-            : "border-line bg-surface hover:border-brand/50 hover:bg-brand-light/40"
-        }`}
-      >
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-light text-brand transition-transform group-hover:scale-105">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <p className="font-display text-base font-semibold text-ink">
-          Drag a product photo here
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          or{" "}
-          <span className="font-medium text-brand underline-offset-2 group-hover:underline">
-            browse your files
-          </span>
-        </p>
-        <p className="mt-4 text-xs text-muted">
-          JPG, PNG or WEBP · up to {formatMb(MAX_IMAGE_SIZE_BYTES)}
-        </p>
-        <input
-          ref={inputRef}
-          id="product-image-input"
-          type="file"
-          accept={ACCEPTED_IMAGE_TYPES.join(",")}
-          className="sr-only"
-          onChange={(e) => validateAndUse(e.target.files?.[0])}
-        />
-      </label>
+      <div className="relative">
+        <span className="absolute left-3 top-3 h-1.5 w-1.5 rounded-full bg-brand/60" aria-hidden="true" />
+        <span className="absolute right-4 top-6 h-1 w-1 rounded-full bg-brand/40" aria-hidden="true" />
+        <span className="absolute bottom-5 left-6 h-1 w-1 rounded-full bg-brand/40" aria-hidden="true" />
+        <span className="absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full bg-brand/60" aria-hidden="true" />
+        <label
+          htmlFor="product-image-input"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            validateAndUse(e.dataTransfer.files?.[0]);
+          }}
+          className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl2 border-2 border-dashed px-6 py-16 text-center transition-colors ${
+            isDragging
+              ? "border-brand bg-brand-light"
+              : "border-brand/30 bg-surface hover:border-brand/60 hover:bg-brand-light/40"
+          }`}
+        >
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand-light text-brand shadow-pop transition-transform group-hover:scale-105">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 15V6M12 6l-3.5 3.5M12 6l3.5 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6.5 15.5A3.5 3.5 0 017 8.6 5 5 0 0116.9 10 3.5 3.5 0 0117.5 17H7.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <p className="font-display text-xl font-bold text-ink">Turn your product into an ad</p>
+          <p className="mt-1.5 text-sm text-muted">Drop your product image here or browse your files</p>
+          <p className="mt-4 text-sm text-muted">
+            <span className="font-medium text-brand underline-offset-2 group-hover:underline">
+              Browse files
+            </span>
+            . JPG, PNG or WEBP. Up to {formatMb(MAX_IMAGE_SIZE_BYTES)}.
+          </p>
+          <input
+            ref={inputRef}
+            id="product-image-input"
+            type="file"
+            accept={ACCEPTED_IMAGE_TYPES.join(",")}
+            className="sr-only"
+            onChange={(e) => validateAndUse(e.target.files?.[0])}
+          />
+        </label>
+      </div>
       {error && (
         <p role="alert" className="mt-3 text-sm font-medium text-danger">
           {error}
