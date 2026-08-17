@@ -4,10 +4,7 @@ A guide to using the app, written for anyone — no technical background needed.
 
 ## 1. Upload a product image
 
-On the main page, either:
-- Drag and drop a product photo onto the upload area, or
-- Click it to browse and select a file, or
-- Pick one of the 3 demo products shown below the upload area if you don't have your own image handy
+On the main page, either drag and drop a product photo onto the upload area, or click it to browse and select a file.
 
 Accepted formats: JPG, PNG, WEBP. Maximum size: 8MB. If something's wrong with the file, you'll see a clear message explaining why (wrong format, file too large).
 
@@ -20,14 +17,15 @@ After uploading, a settings panel appears:
 - **Target audience** — leave on "Auto" to let the AI infer a sensible audience from the image, or choose "Custom" and describe your audience yourself (e.g. "busy parents in their 30s").
 - **Tone** — Persuasive, Friendly, Urgent, or Premium.
 - **Language** — Slovenian or English. The generated ad will be entirely in this language.
-- **Product name** *(optional)* — give the AI the exact name to use.
-- **Key selling point** *(optional)* — the one thing you most want highlighted.
+- **Call to action** — Shop Now, Learn More, or Get Offer. "Shop Now" is selected by default. Whichever you pick is exactly what appears in the generated ad — the AI cannot substitute a different one.
+- **Product name** *(optional)* — give the AI the exact name to use. If left blank, the AI identifies a reasonable descriptive name from the image (never a specific brand or model it can't verify).
+- **Key selling point / benefit** *(optional)* — the one thing you most want highlighted.
 
 The optional fields aren't required, but filling them in helps the AI produce more accurate, relevant copy.
 
 ## 3. Generate the ad
 
-Click **Generate Facebook Ad**. You'll see a loading indicator while the AI analyzes your image and writes the copy — this usually takes a few seconds. The rest of the page stays responsive while this happens.
+Once you're happy with your settings, click **Generate Facebook Ad**. You'll see a loading indicator while the AI analyzes your image and writes the copy — this usually takes a few seconds. The rest of the page stays responsive while this happens.
 
 ## 4. Review and copy the results
 
@@ -38,16 +36,18 @@ Once generation finishes, you'll see:
 
 ## 5. Regenerate
 
-Not happy with the result? Click **Regenerate** to have the AI write a new version using the same image and settings. This counts as one more generation against your free limit.
+Not happy with the result? Click **Regenerate** to have the AI write a new version using the same image and the same settings.
 
 ## 6. Generate another ad
 
-Click **Generate another ad** to reset the page and start over with a new product image.
+Click **Generate another ad** to start a fresh product. This clears the uploaded image, product name, custom audience text, and key selling point — but keeps your Tone, Language, and Call to action selections exactly as they were, so you don't have to re-pick your general preferences for every new product.
 
-## 7. What happens after your 3 free generations
+## 7. Recent Generations
 
-The app includes 3 free AI generations (both a fresh generate and a regenerate count as one each). Once you hit 3, clicking Generate shows a message:
+Every ad you successfully generate (including regenerated variations) is saved to a **Recent Generations** list below the main generator, showing the product name, headline, a short preview of the primary text, and how long ago it was made (e.g. "5 min ago"). It keeps your **10 most recent** generations — older ones drop off automatically.
 
-> "You've used your 3 free generations — You've created 3 Facebook ads using the free plan. Upgrade to Premium to continue generating ad copy."
+Click **View** on any entry to see its full text fields in a pop-up. Note: the original product photo isn't saved with history, so the pop-up shows text only.
 
-From there you can choose **Upgrade to Premium** (a placeholder for this assessment — no real payment is processed) or **Close** to dismiss the message. The small "Free generations: x / 3" indicator near the top of the page always shows how many you have left.
+To remove everything, click **Clear history** at the top of the section — you'll be asked to confirm first, since this can't be undone.
+
+This history is stored only in your current browser. It won't follow you to a different browser, device, or after clearing your browser's site data.
