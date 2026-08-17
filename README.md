@@ -119,3 +119,4 @@ Open http://localhost:3000.
 
 - `USER_MANUAL.md` — how to use the app, end-user perspective
 - `TECHNICAL_SPECIFICATION.md` — architecture, decisions, and what would change for production
+- `SAMPLE_OUTPUTS.pdf` — real generated ad copy with screenshots for 3 Vigoshop.si products.

@@ -162,21 +162,22 @@ If the user clicks **Regenerate** instead, the flow is identical from step 2 onw
 The current implementation intentionally focuses on providing a simple, functional MVP. The following improvements would be priorities when moving from a demonstration tool toward a production product.
 
 ### 1. Authentication & Server-Side History
-Add user accounts and move generation history from browser `localStorage` to a database. This would allow users to access their history across browsers and devices while securely associating stored data with individual accounts.
+Add user accounts and move generation history from browser `localStorage` to a database(eg. Supabase). This would allow users to access their history across browsers and devices while securely associating stored data with individual accounts.
 
 ### 2. Usage Limits & Rate Limiting
-Implement server-side generation limits and API rate limiting to prevent abuse and control Gemini API costs. The current client-side limit is suitable for the exercise, but production limits should be enforced on the server and should not rely on client-side state.
+Implement server-side generation limits and API rate limiting to prevent abuse and control Gemini API costs. 
 
 ### 3. Multiple Ad Variations & A/B Testing
 Allow users to generate multiple copy variations for the same product, using different marketing angles or hooks. This could later be extended into A/B testing to determine which variation performs better.
 
 ### 4. Product Catalog Integration
-Integrate with an ecommerce product catalog or product feed so product images and information can be retrieved automatically instead of requiring users to upload and enter product details manually.
+Integrate with an ecommerce product catalog or product feed so product images and information can be retrieved automatically instead of requiring users to upload and enter product details manually and adding to facebook account so the post can be automatically uploaded.
 
 ### 5. Automated Claim & Policy Validation
 Add a validation layer that checks generated copy for unsupported product claims and common advertising-policy issues before displaying or publishing the copy. This would reduce the risk of misleading or non-compliant advertising content.
 
-### 6. saved tone/style presets per account
+### 6. Personlisation 
+Save tone/style presets per account, just like Facebook
 
 
 
